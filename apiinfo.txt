@@ -1,0 +1,21 @@
+SETTING UP:
+
+Before you get started, run these commands in Python:
+	'pip install canvasapi'
+	'pip install --upgrade google-api-python-client oauth2client'
+	
+	
+For Google Tasks, the program will automatically ask for authentication, provided you have a 'credentials.json' file from Google API Console.
+
+You can get a key here: https://developers.google.com/tasks/quickstart/python
+(STOP AFTER STEP 2)
+
+After placing 'credentials.json' into your directory and installing both Google's auth client,
+Head to your Canvas account settings and request an API key.
+
+In Canvas:
+-(Account -> Settings -> Approved Integrations -> New Access Token)
+-Name the purpose 'Canvas-2-GTasks' (Any name works too)
+-Copy your key and keep it handy
+
+After getting your Google and Canvas credentials, run the program. Have the Canvas API key ready when prompted.	
