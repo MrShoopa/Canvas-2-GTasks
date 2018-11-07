@@ -48,7 +48,7 @@ def main():
 
     course_ids = []
     for course in course_list:
-        id = get_asset_id(course, canvas)
+        id = get_item_id(course)
         course_ids.append(id)
 
     # todo_list = canvas.get_todo_items()
@@ -155,18 +155,17 @@ def get_upcoming_assignments(course_list, canvas_user, canvas,
     user_assignments = []
 
     for course in course_list:
-        course_name = str(course)
-        course_name = course_name[0:(course_name.find(' ('))]
+        course_name = strip_id(course)
         if include_past:
             course_assignments = canvas_user.get_assignments(
-                get_asset_id(course, canvas))
+                get_item_id(course))
             for ass in course_assignments:
-                user_assignments.append(str(ass) + " - " + course_name)
+                user_assignments.append(strip_id(ass) + " - " + course_name)
         else:
             course_assignments = canvas_user.get_assignments(
-                get_asset_id(course, canvas), bucket='upcoming')
+                get_item_id(course), bucket='upcoming')
             for ass in course_assignments:
-                user_assignments.append(str(ass) + " - " + course_name)
+                user_assignments.append(strip_id(ass) + " - " + course_name)
 
         # print("\nUpcoming assignments: ")
         # for i in user_assignments:
@@ -201,26 +200,26 @@ def synchronize_lists(canvas_list, google_list, google_service):
     return True
 
 
-def get_asset_id(asset, canvas):
-    asset = str(asset)
-    start = asset.find('(') + 1
-    end = asset.find(')', start)
-    asset = str(asset[start:end])
+def get_item_id(item):
+    item = str(item)
+    start = item.find('(') + 1
+    end = item.find(')', start)
+    item = str(item[start:end])
 
-    # print("Fetched asset id: " + asset)
+    # print("Fetched item id: " + item)
 
-    return asset
+    return item
+
+
+def strip_id(item):
+    item = str(item)
+    return item[0:(item.find(' ('))]
 
 
 def get_sample_course(course_list, canvas):
-    course = str(course_list[0])
-    start = course.find('(') + 1
-    end = course.find(')', start)
-    course = str(course[start:end])
-
     # print("Sample course: " + course)
 
-    return canvas.get_course(course)
+    return canvas.get_course(get_item_id(course_list[0]))
 
 
 """ inside jokes """
