@@ -7,4 +7,5 @@ Python 3 and pip must be installed to be used.
 Canvas API key can be obtained from your Canvas account settings page.
 
 Extras:
--To sync every assignment, in 'canvas2gtasks.py', rewrite the first "False" in get_upcoming_assignments to "True". (Be prepared for a spaghetti list!)
+
+- To sync every assignment, in 'canvas2gtasks.py', rewrite the first "False" in get_upcoming_assignments to "True". (Be prepared for a spaghetti list!)
