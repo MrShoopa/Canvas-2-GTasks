@@ -8,4 +8,4 @@ Canvas API key can be obtained from your Canvas account settings page.
 
 Extras:
 
-- To sync every assignment, in 'canvas2gtasks.py', rewrite the first "False" in get_upcoming_assignments to "True". (Be prepared for a spaghetti list!)
+- To sync every single assignment (including completed), in 'canvas2gtasks.py', rewrite the first "False" in get_upcoming_assignments (LINE 59) to "True". (Be prepared for a spaghetti list!)
