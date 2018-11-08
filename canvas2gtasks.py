@@ -169,7 +169,7 @@ def get_upcoming_assignments(course_list, canvas_user, canvas,
                 assignment_dict['course'] = course_name
                 # TODO: CHECK
                 # assignment_dict['is_complete'] = ass['has_submitted_submissions']
-                user_assignments.append(assignment_dict)
+                user_assignments.append(assignment_dict.copy())
         else:
             course_assignments = canvas_user.get_assignments(
                 get_item_id(course), bucket='upcoming')
@@ -179,7 +179,7 @@ def get_upcoming_assignments(course_list, canvas_user, canvas,
                 assignment_dict['course'] = course_name
                 # TODO: CHECK
                 # assignment_dict['is_complete'] = ass['has_submitted_submissions']
-                user_assignments.append(assignment_dict)
+                user_assignments.append(assignment_dict.copy())
 
         # print("\nUpcoming assignments: ")
         # for i in user_assignments:
