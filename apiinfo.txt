@@ -10,7 +10,7 @@ For Google Tasks, the program will automatically ask for authentication, provide
 You can get a key here: https://developers.google.com/tasks/quickstart/python
 (STOP AFTER STEP 2)
 
-After placing 'credentials.json' into your directory and installing both Google's auth client,
+After placing 'credentials.json' into folder 'user' and installing both Google's auth client,
 Head to your Canvas account settings and request an API key.
 
 In Canvas:

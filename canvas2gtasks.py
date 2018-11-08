@@ -14,8 +14,9 @@ Special thanks to Google (Tasks API) and ucfopen's Canvas API for making this pl
 
 from __future__ import print_function
 import os
-import fileinput
 import re
+import fileinput
+import datetime
 
 from googleapiclient.discovery import build
 from httplib2 import Http
@@ -30,6 +31,8 @@ TASKLIST_ID = ''
 
 
 def main():
+    os.chdir('user')
+
     """ Google API Authorization """
     google_service = auth_google_tasks()
 
@@ -153,6 +156,7 @@ def retrieve_courses(canvas_user, all_courses=False):
 def get_upcoming_assignments(course_list, canvas_user, canvas,
                              include_past=False, debug=False):
     user_assignments = []
+    assignment_dict = {}
 
     for course in course_list:
         course_name = strip_id(course)
@@ -160,12 +164,22 @@ def get_upcoming_assignments(course_list, canvas_user, canvas,
             course_assignments = canvas_user.get_assignments(
                 get_item_id(course))
             for ass in course_assignments:
-                user_assignments.append(strip_id(ass) + " - " + course_name)
+                assignment_dict['title'] = strip_id(ass)
+                assignment_dict['id'] = get_item_id(ass)
+                assignment_dict['course'] = course_name
+                # TODO: CHECK
+                # assignment_dict['is_complete'] = ass['has_submitted_submissions']
+                user_assignments.append(assignment_dict)
         else:
             course_assignments = canvas_user.get_assignments(
                 get_item_id(course), bucket='upcoming')
             for ass in course_assignments:
-                user_assignments.append(strip_id(ass) + " - " + course_name)
+                assignment_dict['title'] = strip_id(ass)
+                assignment_dict['id'] = get_item_id(ass)
+                assignment_dict['course'] = course_name
+                # TODO: CHECK
+                # assignment_dict['is_complete'] = ass['has_submitted_submissions']
+                user_assignments.append(assignment_dict)
 
         # print("\nUpcoming assignments: ")
         # for i in user_assignments:
@@ -179,24 +193,37 @@ def get_saved_tasks(google_list, google_service):
     return results.get('items', [])
 
 
+def is_complete(assignment, canvas_user):
+    return True
+
+
 def synchronize_lists(canvas_list, google_list, google_service):
-    # TODO: Prevent duplicate entries
+    # TODO: Update existing entries with completed status and check 'non_present and completed' code
     google_list = google_service.tasks().list(tasklist=TASKLIST_ID).execute()
     google_list = google_list.get('items', [])
 
     for assignment in canvas_list:
+        assignment_string = str(
+            assignment['title'] + " - " + assignment['course'])
+        time_completed = datetime.datetime.now().isoformat()  # TODO: get actual date lel
+        print(time_completed)
         not_present = True
 
         # print("Canvas: " + assignment)
         for task in google_list:
             # print("Google: " + task['title'])
-            if str(assignment) in task['title']:
+            if assignment_string in task['title']:
                 not_present = False
 
         # print("Is not present in Google: " + str(not_present))
         if not_present:
+            # if assignment['is_complete']:
+                # google_service.tasks().insert(
+                    # tasklist=TASKLIST_ID,
+                    # body={'title': assignment_string, 'complete': str(time_completed)}).execute()
+            # else:
             google_service.tasks().insert(
-                tasklist=TASKLIST_ID, body={'title': str(assignment)}).execute()
+                tasklist=TASKLIST_ID, body={'title': assignment_string}).execute()
     return True
 
 
