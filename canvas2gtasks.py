@@ -47,19 +47,17 @@ def main():
 
     tasklists = google_service.tasklists().list().execute()
     canvas_user = canvas.get_current_user()
-    course_list = retrieve_courses(canvas_user)
+    course_list = get_courses(canvas_user)
 
     course_ids = []
     for course in course_list:
         id = get_item_id(course)
         course_ids.append(id)
 
-    # todo_list = canvas.get_todo_items()
-
-    assignments = get_upcoming_assignments(
+    assignments = get_assignment_dictionary(
         course_list, canvas_user, canvas, False, True)
 
-    if fetch_google_canvas_list(tasklists, google_service) is not None:
+    if get_google_canvas_list(tasklists, google_service) is not None:
         print("\n###   Canvas-2-GTasks is ready!   ###")
 
     sync_result = synchronize_lists(
@@ -83,10 +81,8 @@ def auth_google_tasks():
 def auth_canvas():
     user_keys_file = open("apikeys.txt", "r")
     user_keys_temp = user_keys_file.readlines()
-    # print(user_keys_temp)
     canvas_key = user_keys_temp[3]
 
-    # print(canvas_key)
     if (canvas_key == "<PLACEHOLDER>" or len(canvas_key) != 67):
         canvas_key = prompt_canvas_key()
         user_keys_temp[3] = canvas_key
@@ -115,21 +111,26 @@ def prompt_canvas_key():
             print("Invalid key. (Did you include '10~'?)")
 
 
+def get_sample_course(course_list, canvas):
+    # TEST # print("Sample course: " + course)
+
+    return canvas.get_course(get_item_id(course_list[0]))
+
+
 """ Functions for Canvas-2-GTasks """
 
 
-def fetch_google_canvas_list(tasklists, service, debug=False):
+def get_google_canvas_list(tasklists, service, debug=False):
     global TASKLIST_ID
 
-    # print("\nGoogle Tasks list:")
+    # TEST #  print("\nGoogle Tasks list:")
 
     for tasklist in tasklists.get('items', []):
 
-        # print(tasklist.get('title'))
+        # TEST # print(tasklist.get('title'))
 
         if tasklist.get('title') == "Canvas Assignments":
             TASKLIST_ID = (tasklist.get('id'))
-            # print(TASKLIST_ID)
             print("\nCanvas Assignments list found!")
             return tasklist
 
@@ -141,20 +142,17 @@ def fetch_google_canvas_list(tasklists, service, debug=False):
     print(result['title'] + " was made")
 
 
-def retrieve_courses(canvas_user, all_courses=False):
+def get_courses(canvas_user, all_courses=False):
     course_list = canvas_user.get_courses(
         enrollment_state='active', include='term')
     if all_courses:
         course_list = canvas_user.get_courses()
 
-    # for course in course_list:
-        # print(course)
-
     return course_list
 
 
-def get_upcoming_assignments(course_list, canvas_user, canvas,
-                             include_past=False, debug=False):
+def get_assignment_dictionary(course_list, canvas_user, canvas,
+                              include_past=False, debug=False):
     user_assignments = []
     assignment_dict = {}
 
@@ -164,28 +162,41 @@ def get_upcoming_assignments(course_list, canvas_user, canvas,
             course_assignments = canvas_user.get_assignments(
                 get_item_id(course))
             for ass in course_assignments:
-                assignment_dict['title'] = strip_id(ass)
-                assignment_dict['id'] = get_item_id(ass)
-                assignment_dict['course'] = course_name
-                # TODO: CHECK
-                # assignment_dict['is_complete'] = ass['has_submitted_submissions']
+                # TODO: Add 'Completed' and 'Due Date' functionality
+                assignment_dict = {'title': strip_id(ass), 'id': get_item_id(
+                    ass), 'course': course_name, 'due_date': "PLACEHOLDER"}
+                assignment_dict['completed'] = item_in_both_lists_as_string(
+                    ass, course_assignments, canvas_user.get_assignments(
+                        get_item_id(course), bucket='unsubmitted'))
+
                 user_assignments.append(assignment_dict.copy())
         else:
             course_assignments = canvas_user.get_assignments(
                 get_item_id(course), bucket='upcoming')
             for ass in course_assignments:
-                assignment_dict['title'] = strip_id(ass)
-                assignment_dict['id'] = get_item_id(ass)
-                assignment_dict['course'] = course_name
-                # TODO: CHECK
-                # assignment_dict['is_complete'] = ass['has_submitted_submissions']
+                # TODO: Add 'Completed' and 'Due Date' functionality
+                assignment_dict = {'title': strip_id(ass), 'id': get_item_id(
+                    ass), 'course': course_name, 'due_date': "PLACEHOLDER"}
+                assignment_dict['completed'] = item_in_both_lists_as_string(
+                    ass, course_assignments, canvas_user.get_assignments(
+                        get_item_id(course), bucket='unsubmitted'))
+
                 user_assignments.append(assignment_dict.copy())
 
-        # print("\nUpcoming assignments: ")
-        # for i in user_assignments:
-            # print(i)
-
     return user_assignments
+
+
+def get_unsubmitted_upcoming_assignments(course_list, canvas_user, canvas):
+    assignment_list = []
+
+    for course in course_list:
+        course_name = strip_id(course)
+        course_assignments = canvas_user.get_assignments(
+            course, bucket={'upcoming', 'unsubmitted'}, include='submission')
+        for ass in course_assignments:
+            assignment_list.append(str(ass) + " - " + course_name)
+
+    return assignment_list
 
 
 def get_saved_tasks(google_list, google_service):
@@ -193,31 +204,36 @@ def get_saved_tasks(google_list, google_service):
     return results.get('items', [])
 
 
-def is_complete(assignment, canvas_user):
-    return True
-
-
 def synchronize_lists(canvas_list, google_list, google_service):
     # TODO: Update existing entries with completed status and check 'non_present and completed' code
     google_list = google_service.tasks().list(tasklist=TASKLIST_ID).execute()
     google_list = google_list.get('items', [])
 
+    print("\nAssignments found:\n")
+
     for assignment in canvas_list:
-        assignment_string = str(
-            assignment['title'] + " - " + assignment['course'])
-        time_completed = datetime.datetime.now().isoformat()  # TODO: get actual date lel
-        print(time_completed)
+        time_completed = datetime.datetime.now().isoformat()  # TODO: get actual date
         not_present = True
 
-        # print("Canvas: " + assignment)
+        assignment_string = str(
+            assignment['title'] + " - " + assignment['course'])
+
+        print(assignment_string)
+        if assignment['completed'] != False:
+            print(" Completed at: " + assignment['completed'])
+        else:
+            continue
+            # print(" Not yet completed")
+
+        # TEST # print("Canvas: " + assignment)
         for task in google_list:
-            # print("Google: " + task['title'])
+            # TEST # print("Google: " + task['title'])
             if assignment_string in task['title']:
                 not_present = False
 
-        # print("Is not present in Google: " + str(not_present))
+        # TEST # print("Is not present in Google: " + str(not_present))
         if not_present:
-            # if assignment['is_complete']:
+            # if assignment['complete'] != False:
                 # google_service.tasks().insert(
                     # tasklist=TASKLIST_ID,
                     # body={'title': assignment_string, 'complete': str(time_completed)}).execute()
@@ -233,7 +249,7 @@ def get_item_id(item):
     end = item.find(')', start)
     item = str(item[start:end])
 
-    # print("Fetched item id: " + item)
+    # TEST # print("Fetched item id: " + item)
 
     return item
 
@@ -243,10 +259,12 @@ def strip_id(item):
     return item[0:(item.find(' ('))]
 
 
-def get_sample_course(course_list, canvas):
-    # print("Sample course: " + course)
-
-    return canvas.get_course(get_item_id(course_list[0]))
+def item_in_both_lists_as_string(item, list_1, list_2):
+    for i in list_1:
+        for j in list_2:
+            if str(i) == str(j) and str(i) == str(item):
+                return True
+    return False
 
 
 """ inside jokes """
