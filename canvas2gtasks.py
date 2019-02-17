@@ -17,6 +17,7 @@ import os
 import re
 import fileinput
 import datetime
+import itertools
 
 from googleapiclient.discovery import build
 from httplib2 import Http
@@ -24,7 +25,7 @@ from oauth2client import file, client, tools
 
 from canvasapi import Canvas
 
-# If modifying these scopes, delete the file token.json.
+#   If modifying these scopes, delete the file token.json.
 SCOPES = 'https://www.googleapis.com/auth/tasks'
 
 TASKLIST_ID = ''
@@ -37,7 +38,7 @@ def main():
     google_service = auth_google_tasks()
 
     """ Canvas API Authorization """
-    # Canvas API URL and Key
+    #   Canvas API URL and Key
     CANVAS_API_URL = "https://canvas.instructure.com"
     CANVAS_API_KEY = auth_canvas()
 
@@ -46,9 +47,12 @@ def main():
     """ Program start - Task List and To-Do List fetch """
 
     tasklists = google_service.tasklists().list().execute()
+    print("✔ User authorized with Google account.")
     canvas_user = canvas.get_current_user()
+    print("✔ User authorized with Canvas account.")
     course_list = get_courses(canvas_user)
 
+    print("\nFinding assignments in Canvas...")
     course_ids = []
     for course in course_list:
         id = get_item_id(course)
@@ -60,10 +64,11 @@ def main():
     if get_google_canvas_list(tasklists, google_service) is not None:
         print("\n###   Canvas-2-GTasks is ready!   ###")
 
+    print("\nSyncronizing your assignments with your GTasks list...")
     sync_result = synchronize_lists(
         assignments, tasklists, google_service)
     if sync_result:
-        print("\nLists synchronized.")
+        print("\n✔ Lists synchronized.")
 
 
 """ Authorizations """
@@ -81,8 +86,10 @@ def auth_google_tasks():
 def auth_canvas():
     user_keys_file = open("apikeys.txt", "r")
     user_keys_temp = user_keys_file.readlines()
+    # print(user_keys_temp)
     canvas_key = user_keys_temp[3]
 
+    # print(canvas_key)
     if (canvas_key == "<PLACEHOLDER>" or len(canvas_key) != 67):
         canvas_key = prompt_canvas_key()
         user_keys_temp[3] = canvas_key
@@ -112,7 +119,7 @@ def prompt_canvas_key():
 
 
 def get_sample_course(course_list, canvas):
-    # TEST # print("Sample course: " + course)
+    #print("Sample course: " + course)
 
     return canvas.get_course(get_item_id(course_list[0]))
 
@@ -123,14 +130,15 @@ def get_sample_course(course_list, canvas):
 def get_google_canvas_list(tasklists, service, debug=False):
     global TASKLIST_ID
 
-    # TEST #  print("\nGoogle Tasks list:")
+    #print("\nGoogle Tasks list:")
 
     for tasklist in tasklists.get('items', []):
 
-        # TEST # print(tasklist.get('title'))
+        # print(tasklist.get('title'))
 
         if tasklist.get('title') == "Canvas Assignments":
             TASKLIST_ID = (tasklist.get('id'))
+            # print(TASKLIST_ID)
             print("\nCanvas Assignments list found!")
             return tasklist
 
@@ -148,6 +156,9 @@ def get_courses(canvas_user, all_courses=False):
     if all_courses:
         course_list = canvas_user.get_courses()
 
+    # for course in course_list:
+        # print(course)
+
     return course_list
 
 
@@ -162,26 +173,42 @@ def get_assignment_dictionary(course_list, canvas_user, canvas,
             course_assignments = canvas_user.get_assignments(
                 get_item_id(course))
             for ass in course_assignments:
-                # TODO: Add 'Completed' and 'Due Date' functionality
-                assignment_dict = {'title': strip_id(ass), 'id': get_item_id(
-                    ass), 'course': course_name, 'due_date': "PLACEHOLDER"}
-                assignment_dict['completed'] = item_in_both_lists_as_string(
-                    ass, course_assignments, canvas_user.get_assignments(
-                        get_item_id(course), bucket='unsubmitted'))
+                assignment_dict['title'] = strip_id(ass)
+                assignment_dict['id'] = get_item_id(ass)
+                assignment_dict['course'] = course_name
+                #   TODO: CHECK
+                try:
+                    assignment_dict['complete'] = ass.get_submission(
+                        include='submission_history')
+                except:
+                    assignment_dict['complete'] = False
 
                 user_assignments.append(assignment_dict.copy())
         else:
             course_assignments = canvas_user.get_assignments(
                 get_item_id(course), bucket='upcoming')
             for ass in course_assignments:
-                # TODO: Add 'Completed' and 'Due Date' functionality
-                assignment_dict = {'title': strip_id(ass), 'id': get_item_id(
-                    ass), 'course': course_name, 'due_date': "PLACEHOLDER"}
-                assignment_dict['completed'] = item_in_both_lists_as_string(
+                assignment_dict['title'] = strip_id(ass)
+                assignment_dict['id'] = get_item_id(ass)
+                assignment_dict['course'] = course_name
+                assignment_dict['complete'] = item_in_both_lists_as_string(
                     ass, course_assignments, canvas_user.get_assignments(
                         get_item_id(course), bucket='unsubmitted'))
+                #   TODO: CHECK
+                # print(ass)
+                #print("Is completed: " + str(assignment_dict['complete']))
+
+                #   TEST
+                test_list = canvas_user.get_assignments(
+                    get_item_id(course), bucket='unsubmitted')
+                for test in test_list:
+                    print(test)
 
                 user_assignments.append(assignment_dict.copy())
+
+        #print("\nUpcoming assignments: ")
+        # for i in user_assignments:
+            # print(i)
 
     return user_assignments
 
@@ -205,7 +232,7 @@ def get_saved_tasks(google_list, google_service):
 
 
 def synchronize_lists(canvas_list, google_list, google_service):
-    # TODO: Update existing entries with completed status and check 'non_present and completed' code
+    #   TODO: Update existing entries with completed status and check 'non_present and completed' code
     google_list = google_service.tasks().list(tasklist=TASKLIST_ID).execute()
     google_list = google_list.get('items', [])
 
@@ -219,19 +246,19 @@ def synchronize_lists(canvas_list, google_list, google_service):
             assignment['title'] + " - " + assignment['course'])
 
         print(assignment_string)
-        if assignment['completed'] != False:
-            print(" Completed at: " + assignment['completed'])
+        if assignment['complete'] != False:
+            print(" Completed at: " + assignment['complete'])
         else:
             continue
-            # print(" Not yet completed")
+            #print(" Not yet completed")
 
-        # TEST # print("Canvas: " + assignment)
+        #print("Canvas: " + assignment)
         for task in google_list:
-            # TEST # print("Google: " + task['title'])
+            #print("Google: " + task['title'])
             if assignment_string in task['title']:
                 not_present = False
 
-        # TEST # print("Is not present in Google: " + str(not_present))
+        #print("Is not present in Google: " + str(not_present))
         if not_present:
             # if assignment['complete'] != False:
                 # google_service.tasks().insert(
@@ -249,7 +276,7 @@ def get_item_id(item):
     end = item.find(')', start)
     item = str(item[start:end])
 
-    # TEST # print("Fetched item id: " + item)
+    #print("Fetched item id: " + item)
 
     return item
 
@@ -260,8 +287,13 @@ def strip_id(item):
 
 
 def item_in_both_lists_as_string(item, list_1, list_2):
+    #print("Comparing items: ")
     for i in list_1:
+        # print(i)
         for j in list_2:
+            print("against ")
+            print(j)
+            print(str(i) + "] v [" + str(j))
             if str(i) == str(j) and str(i) == str(item):
                 return True
     return False
